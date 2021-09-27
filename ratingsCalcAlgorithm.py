@@ -46,7 +46,7 @@ def unratedRating(player):
     #fix: need to add QC ratings to set players rating = QC rating if international unavailable
     #fix: need to add check to set player rating to 750 if no international rating or age info
     else:
-        if(player.age <= 4 and player.age >= 20):
+        if(player.age <= 4 and player.age <= 20):
             return 300 + 50 * player.age
         else:
             return 1300
@@ -69,6 +69,15 @@ def calculateK(N, M):
 def winningE(R, R2):
     return 1/(1+10.0**(-(R - R2)/400.0))
 
+#calculate provisional winning expectancy
+def pWE(R, R2):
+    if (R <= R2 - 400):
+        return 0
+    if (R > R2 - 400 and R < R2 + 400):
+        return .5 + (R - R2)/800.0
+    if (R >= R2 - 400):
+        return 1
+
 #adjusts rating for floor based on highest rating
 def ratingFloor(i):
     floor = 100
@@ -77,9 +86,9 @@ def ratingFloor(i):
     return floor
 
 def main():
-    M = m
     # loops through all players in the tournament and calculates their new ratings
     for player in playerList:
+        M = m
         print(player.name)
         #rates unrated players
         if (player.rating == 0):
@@ -87,7 +96,6 @@ def main():
         newRating = player.rating
         #calculates number of effective games (N)
         N = effectiveGames(player)
-        #fix: need to add special rating calculations for players where N < 8
         #runs through all of the player's games and generates new rating
         if (N > 8):
             #S is the players score and E is the sum of the total winning expectancy against all opponents
@@ -102,7 +110,7 @@ def main():
                 if (player.score[z][0:1] != "B"):
                     E = E + winningE(player.rating, playerList[(int(player.score[z][1:2])) - 1].rating)
                 if (player.score[z][0:1] == "B"):
-                    M - 1
+                    M = M - 1
             #calculates K
             K = calculateK(N, M)
             #fix: need to add a check that that makes this TRUE if any player plays the same opponent more than twice
@@ -115,7 +123,33 @@ def main():
                 newRating = int(math.ceil(newRating))
             if (newRating < player.rating):
                 newRating = int(math.floor(newRating))
-
+        
+        #for players without an established rating
+        if (N <= 8 or player.allWins == 1 or player.allWins == 2):
+            S = 0
+            E = 0
+            R2 = 0
+            S2 = 0
+            for z in range(m):
+                if (player.score[z][0:1] == "W"):
+                    S = S + 1
+                if (player.score[z][0:1] == "D"):
+                    S = S+.5
+                if (player.score[z][0:1] != "B"):
+                    E = E + pWE(player.rating, playerList[(int(player.score[z][1:2])) - 1].rating)
+                if (player.score[z][0:1] == "B"):
+                    M = M - 1
+            if(player.allWins == 1):
+                R2 = player.rating - 400
+                S2 = S + N
+            if(player.allWins == 2):
+                R2 = player.rating + 400
+                S2 = S
+            if (player.allWins == 0):
+                R2 = player.rating
+                S2 = S + N/2.0
+            #fix: still working on implementing the function iteratively as described in the paper
+            newRating = N * pWE(player.rating, R2) + E - S2
         #calls rating floor method to determine if the current rating would be below the player's floor
         if (newRating < ratingFloor(player.peak)):
             newRating = ratingFloor(player.peak)
